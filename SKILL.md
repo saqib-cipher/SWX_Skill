@@ -422,92 +422,237 @@ When an event or MoreBlock provides callback arguments (such as `isChecked` in `
 
 ## 6. View & Widget UI System (`view`)
 
-The `view` file defines the visual layout hierarchy for every screen (`.xml` file) in the project.
+The `view` file defines the visual layout hierarchy for every screen (`.xml` file) in the project. When decrypted, it is partitioned into sections using lines beginning with `@`.
 
-### 6.1 View File Section Structure
+### 6.1 View File Section Structure & Qualifiers
 ```text
 @main.xml
 <ViewBean JSON>
 <ViewBean JSON>
 ...
 
+@main.xml_fab
+<ViewBean JSON (type 16, id "_fab")>
+
+@main-land.xml
+<ViewBean JSON>
+...
+
+@main-land.xml_fab
+<ViewBean JSON>
+
 @custom_item.xml
 <ViewBean JSON>
 ...
 ```
 
-### 6.2 View Type Constants (`ViewBean.java` & `ViewBeans.java`)
-| Type ID | Constant | Widget / Layout Class |
-| :--- | :--- | :--- |
-| `0` | `VIEW_TYPE_LAYOUT_LINEAR` | `android.widget.LinearLayout` |
-| `1` | `VIEW_TYPE_LAYOUT_RELATIVE` | `android.widget.RelativeLayout` |
-| `2` | `VIEW_TYPE_LAYOUT_HSCROLLVIEW` | `android.widget.HorizontalScrollView` |
-| `3` | `VIEW_TYPE_WIDGET_BUTTON` | `android.widget.Button` / `MaterialButton` |
-| `4` | `VIEW_TYPE_WIDGET_TEXTVIEW` | `android.widget.TextView` |
-| `5` | `VIEW_TYPE_WIDGET_EDITTEXT` | `android.widget.EditText` |
-| `6` | `VIEW_TYPE_WIDGET_IMAGEVIEW` | `android.widget.ImageView` |
-| `7` | `VIEW_TYPE_WIDGET_WEBVIEW` | `android.webkit.WebView` |
-| `8` | `VIEW_TYPE_WIDGET_PROGRESSBAR` | `android.widget.ProgressBar` |
-| `9` | `VIEW_TYPE_WIDGET_LISTVIEW` | `android.widget.ListView` |
-| `10` | `VIEW_TYPE_WIDGET_SPINNER` | `android.widget.Spinner` |
-| `11` | `VIEW_TYPE_WIDGET_CHECKBOX` | `android.widget.CheckBox` |
-| `12` | `VIEW_TYPE_LAYOUT_VSCROLLVIEW` | `android.widget.ScrollView` |
-| `13` | `VIEW_TYPE_WIDGET_SWITCH` | `android.widget.Switch` |
-| `14` | `VIEW_TYPE_WIDGET_SEEKBAR` | `android.widget.SeekBar` |
-| `16` | `VIEW_TYPE_WIDGET_FAB` | `FloatingActionButton` |
-| `30` | `VIEW_TYPE_LAYOUT_TABLAYOUT` | `TabLayout` |
-| `31` | `VIEW_TYPE_LAYOUT_VIEWPAGER` | `ViewPager` |
-| `32` | `VIEW_TYPE_LAYOUT_BOTTOMNAVIGATIONVIEW` | `BottomNavigationView` |
-| `36` | `VIEW_TYPE_LAYOUT_CARDVIEW` | `CardView` |
-| `37` | `VIEW_TYPE_LAYOUT_COLLAPSINGTOOLBARLAYOUT` | `CollapsingToolbarLayout` |
-| `38` | `VIEW_TYPE_LAYOUT_TEXTINPUTLAYOUT` | `TextInputLayout` |
-| `39` | `VIEW_TYPE_LAYOUT_SWIPEREFRESHLAYOUT` | `SwipeRefreshLayout` |
-| `40` | `VIEW_TYPE_LAYOUT_RADIOGROUP` | `RadioGroup` |
-| `41` | `VIEW_TYPE_WIDGET_MATERIALBUTTON` | `MaterialButton` |
-| `48` | `VIEW_TYPE_WIDGET_RECYCLERVIEW` | `RecyclerView` |
-| `49` | `VIEW_TYPE_LAYOUT_VIEWPAGER2` | `ViewPager2` |
-| `50` | `VIEW_TYPE_WIDGET_MATERIALSWITCH` | `MaterialSwitch` |
-| `158`| `VIEW_TYPE_LAYOUT_CONSTRAINTLAYOUT` | `ConstraintLayout` |
-| `163`| `VIEW_TYPE_LAYOUT_FRAMELAYOUT` | `FrameLayout` |
+* **`@<screen>.xml`**: Base layout for an Activity or Custom View.
+* **`@<screen>.xml_fab`**: Dedicated Floating Action Button section (`id: "_fab"`, `type: 16`), present when the activity's FAB option is enabled (`options: 8`).
+* **`@<screen>-<qualifier>.xml`**: **Responsive Layout Variant (SketchwareX / DayGreen Only)**. Contains the alternate view tree for landscape (`-land`), tablets (`-sw600dp`, `-sw720dp`), or large/foldable displays (`-w840dp`).
 
-### 6.3 ViewBean JSON Schema
+### 6.2 View Type Constants (`ViewBean.java` & `ViewBeans.java`)
+| Type ID | Constant | Widget / Class | Default `convert` Value |
+| :---: | :--- | :--- | :--- |
+| `0` | `VIEW_TYPE_LAYOUT_LINEAR` | `android.widget.LinearLayout` | `""` or `"LinearLayout"` |
+| `1` | `VIEW_TYPE_LAYOUT_RELATIVE` | `android.widget.RelativeLayout` | `"RelativeLayout"` |
+| `2` | `VIEW_TYPE_LAYOUT_HSCROLLVIEW` | `android.widget.HorizontalScrollView` | `"HorizontalScrollView"` |
+| `3` | `VIEW_TYPE_WIDGET_BUTTON` | `android.widget.Button` | `"Button"` |
+| `4` | `VIEW_TYPE_WIDGET_TEXTVIEW` | `android.widget.TextView` | `"TextView"` |
+| `5` | `VIEW_TYPE_WIDGET_EDITTEXT` | `android.widget.EditText` | `"EditText"` |
+| `6` | `VIEW_TYPE_WIDGET_IMAGEVIEW` | `android.widget.ImageView` | `"ImageView"` |
+| `7` | `VIEW_TYPE_WIDGET_WEBVIEW` | `android.webkit.WebView` | `"WebView"` |
+| `8` | `VIEW_TYPE_WIDGET_PROGRESSBAR` | `android.widget.ProgressBar` | `"ProgressBar"` |
+| `9` | `VIEW_TYPE_WIDGET_LISTVIEW` | `android.widget.ListView` | `"ListView"` |
+| `10` | `VIEW_TYPE_WIDGET_SPINNER` | `android.widget.Spinner` | `"Spinner"` |
+| `11` | `VIEW_TYPE_WIDGET_CHECKBOX` | `android.widget.CheckBox` | `"CheckBox"` |
+| `12` | `VIEW_TYPE_LAYOUT_VSCROLLVIEW` | `android.widget.ScrollView` | `"ScrollView"` |
+| `13` | `VIEW_TYPE_WIDGET_SWITCH` | `android.widget.Switch` | `"Switch"` |
+| `14` | `VIEW_TYPE_WIDGET_SEEKBAR` | `android.widget.SeekBar` | `"SeekBar"` |
+| `15` | `VIEW_TYPE_WIDGET_CALENDARVIEW`| `android.widget.CalendarView` | `"CalendarView"` |
+| `16` | `VIEW_TYPE_WIDGET_FAB` | `com.google.android.material.floatingactionbutton.FloatingActionButton` | `""` |
+| `30` | `VIEW_TYPE_LAYOUT_TABLAYOUT` | `com.google.android.material.tabs.TabLayout` | `"com.google.android.material.tabs.TabLayout"` |
+| `31` | `VIEW_TYPE_LAYOUT_VIEWPAGER` | `androidx.viewpager.widget.ViewPager` | `"androidx.viewpager.widget.ViewPager"` |
+| `32` | `VIEW_TYPE_LAYOUT_BOTTOMNAVIGATIONVIEW` | `BottomNavigationView` | `"com.google.android.material.bottomnavigation.BottomNavigationView"` |
+| `36` | `VIEW_TYPE_LAYOUT_CARDVIEW` | `androidx.cardview.widget.CardView` | `"androidx.cardview.widget.CardView"` |
+| `37` | `VIEW_TYPE_LAYOUT_COLLAPSINGTOOLBARLAYOUT` | `CollapsingToolbarLayout` | `"com.google.android.material.appbar.CollapsingToolbarLayout"` |
+| `38` | `VIEW_TYPE_LAYOUT_TEXTINPUTLAYOUT` | `TextInputLayout` | `"com.google.android.material.textfield.TextInputLayout"` |
+| `39` | `VIEW_TYPE_LAYOUT_SWIPEREFRESHLAYOUT` | `SwipeRefreshLayout` | `"androidx.swiperefreshlayout.widget.SwipeRefreshLayout"` |
+| `40` | `VIEW_TYPE_LAYOUT_RADIOGROUP` | `android.widget.RadioGroup` | `"RadioGroup"` |
+| `41` | `VIEW_TYPE_WIDGET_MATERIALBUTTON` | `MaterialButton` | `"com.google.android.material.button.MaterialButton"` |
+| `48` | `VIEW_TYPE_WIDGET_RECYCLERVIEW` | `androidx.recyclerview.widget.RecyclerView` | `"androidx.recyclerview.widget.RecyclerView"` |
+| `49` | `VIEW_TYPE_LAYOUT_VIEWPAGER2` | `androidx.viewpager2.widget.ViewPager2` | `"androidx.viewpager2.widget.ViewPager2"` |
+| `50` | `VIEW_TYPE_WIDGET_MATERIALSWITCH` | `MaterialSwitch` | `"com.google.android.material.materialswitch.MaterialSwitch"` |
+| `158`| `VIEW_TYPE_LAYOUT_CONSTRAINTLAYOUT` | `ConstraintLayout` | `"androidx.constraintlayout.widget.ConstraintLayout"` |
+| `163`| `VIEW_TYPE_LAYOUT_FRAMELAYOUT` | `android.widget.FrameLayout` | `"FrameLayout"` |
+
+### 6.3 Complete ViewBean Real-World JSON Schema
+Each widget is serialized as a single compact JSON line:
 ```json
 {
-  "id": "linear1",
-  "type": 0,
-  "parent": "root",
-  "parentType": -1,
+  "id": "cardview1",
+  "type": 36,
+  "parent": "linear1",
+  "parentType": 0,
   "index": 0,
+  "preIndex": 0,
+  "preParentType": 0,
+  "parentAttributes": {},
+  "convert": "androidx.cardview.widget.CardView",
+  "inject": "app:cardElevation=\"4dp\"\napp:cardCornerRadius=\"16dp\"",
+  "customView": "",
+  "clickable": 1,
+  "enabled": 1,
+  "checked": 0,
+  "choiceMode": 0,
+  "dividerHeight": 1,
+  "firstDayOfWeek": 1,
+  "indeterminate": "false",
+  "max": 100,
+  "progress": 0,
+  "progressStyle": "?android:progressBarStyle",
+  "alpha": 1.0,
+  "scaleX": 1.0,
+  "scaleY": 1.0,
+  "translationX": 0.0,
+  "translationY": 0.0,
+  "spinnerMode": 1,
+  "adSize": "",
+  "adUnitId": "",
   "layout": {
     "width": -1,
-    "height": -1,
+    "height": -2,
     "orientation": 1,
-    "gravity": 17,
+    "gravity": 0,
     "layoutGravity": 0,
-    "paddingLeft": 16,
-    "paddingTop": 16,
-    "paddingRight": 16,
-    "paddingBottom": 16,
+    "paddingLeft": 8,
+    "paddingTop": 8,
+    "paddingRight": 8,
+    "paddingBottom": 8,
     "marginLeft": 0,
     "marginTop": 0,
     "marginRight": 0,
-    "marginBottom": 0,
+    "marginBottom": 16,
     "weight": 0,
-    "backgroundColor": 0
+    "weightSum": 0,
+    "backgroundColor": 16777215,
+    "backgroundResColor": "",
+    "borderColor": -16740915
+  },
+  "text": {
+    "text": "Card Title",
+    "textSize": 16,
+    "textColor": -16777216,
+    "textFont": "default_font",
+    "textType": 1,
+    "hint": "",
+    "hintColor": -10453621,
+    "singleLine": 0,
+    "line": 0,
+    "inputType": 1,
+    "imeOption": 0
+  },
+  "image": {
+    "rotate": 0,
+    "scaleType": "CENTER"
   }
 }
 ```
-Child widgets declare `"parent": "linear1"` and `"index": 0` (or `1`, `2`, etc.) to establish tree structure.
 
-### 6.4 Layout Dimensions
-* `-1`: `MATCH_PARENT`
-* `-2`: `WRAP_CONTENT`
-* `> 0`: Exact density-independent pixel (`dp`) values.
+### 6.4 Hierarchy & Tree Structure
+* **`parent`**:
+  * `"root"`: Topmost root view of the screen.
+  * `<viewId>`: ID of the parent ViewGroup container (e.g. `"linear1"`, `"cardview1"`).
+* **`parentType`**: Type ID of the parent ViewGroup (`0` for LinearLayout, `36` for CardView, `163` for FrameLayout, `-1` for root).
+* **`index`**: Zero-based positional child index within the parent container.
 
-### 6.5 Custom View Subclasses (`convert`) & XML Injection (`inject`)
-Sketchware supports binding widgets to custom Java subclasses and injecting custom XML properties:
-* **`convert`**: Sets the full qualified Java class name of a custom widget (e.g. `"convert": "com.my.Mbutton.ModernFButton"`). When generating layout XML, Sketchware outputs `<com.my.Mbutton.ModernFButton ...>` instead of the default Android widget tag.
-* **`inject`**: Injects raw XML attributes directly into the generated widget element (e.g. `"inject": "android:text=\"Default\" app:cornerRadius=\"12dp\""`). This allows applying custom themes, namespaces, and vendor-specific XML properties without modifying the visual layout editor.
+### 6.5 Layout Geometry, Padding & Dimensions
+* **`width` & `height`**:
+  * `-1`: `MATCH_PARENT`
+  * `-2`: `WRAP_CONTENT`
+  * `0`: Used in combination with `weight > 0` for proportional sizing.
+  * `> 0`: Explicit size in density-independent pixels (`dp`).
+* **`paddingLeft`, `paddingTop`, `paddingRight`, `paddingBottom`**:
+  * Measured in `dp`.
+  * **CardView Automatic Translation (`Ox.java:850`)**: For `CardView` (`type: 36`), Sketchware automatically routes padding values to `app:contentPadding` (if uniform) or `app:contentPaddingLeft`, `app:contentPaddingTop`, etc.
+* **`orientation`**: `0` = Horizontal, `1` = Vertical, `-1` = None (for non-linear containers).
+* **`gravity` & `layoutGravity`** (Bitmask constants):
+  * `0`: `NONE`
+  * `1`: `CENTER_HORIZONTAL`
+  * `3`: `LEFT`
+  * `5`: `RIGHT`
+  * `16`: `CENTER_VERTICAL`
+  * `17`: `CENTER` (`1 | 16`)
+  * `48`: `TOP`
+  * `80`: `BOTTOM`
+  * `85`: `BOTTOM | RIGHT` (`80 | 5`)
+* **`backgroundColor`**:
+  * `16777215` (`0x00FFFFFF`): Transparent / Default theme surface.
+  * Signed 32-bit ARGB integer for custom colors (e.g. `-1` for `#FFFFFF`, `-16777216` for `#000000`, `-15461356` for dark surface).
+
+### 6.6 Custom View Subclasses (`convert`)
+The `convert` field allows binding any widget to an arbitrary custom class or AndroidX component:
+
+1. **XML Tag Generation (`a.a.a.Ox.java:419`)**:
+   ```java
+   XmlBuilder widgetTag = convert.isEmpty() ? new XmlBuilder(viewBean.getClassInfo().getClassName()) :
+           new XmlBuilder(convert.replace(" ", ""));
+   ```
+   * If `convert` is set to `"androidx.cardview.widget.CardView"`, the XML tag emits:
+     `<androidx.cardview.widget.CardView ...>`
+   * If `convert` is set to `"include"`, Sketchware emits an include tag:
+     `<include layout="@layout/<id>" .../>`
+2. **Java Class Field & Import Generation (`a.a.a.Jx.java:850`)**:
+   Sketchware extracts the simple class name using `WIDGET_NAME_PATTERN`:
+   * For `"androidx.cardview.widget.CardView"`:
+     Emits: `private CardView cardview1;` and adds `import androidx.cardview.widget.CardView;`.
+   * For `"com.google.android.material.button.MaterialButton"`:
+     Emits: `private MaterialButton button1;` and adds `import com.google.android.material.button.MaterialButton;`.
+
+### 6.7 Raw XML Attribute Injection (`inject`)
+The `inject` property allows directly adding raw XML attributes into the generated widget element:
+
+* **Engine Parser (`pro.sketchware.utility.InjectAttributeHandler.java`)**:
+  Sketchware parses `inject` using `XmlPullParser` with `xmlns:android`, `xmlns:app`, and `xmlns:tools` namespaces automatically bound.
+* **Syntax**: Attributes separated by newline `\n` with escaped quotes (`\"` or unicode `\u003d` for `=`):
+  ```text
+  "inject": "app:cardElevation=\"4dp\"\napp:cardCornerRadius=\"16dp\"\napp:strokeWidth=\"1dp\""
+  ```
+* **Attribute Override & Deduplication**:
+  Attributes present in `inject` automatically suppress Sketchware's default generated attributes. For example, injecting `android:orientation="horizontal"` overrides the default orientation without duplicate attribute errors.
+
+### 6.8 Responsive Layout System (SketchwareX / DayGreen Only)
+
+> [!IMPORTANT]
+> **SketchwareX Exclusive Feature**:
+> Standard Sketchware and Sketchware Pro **DO NOT** support responsive qualifiers. Only **SketchwareX / DayGreen** supports multi-qualifier layouts in `data/view` and the visual layout switcher.
+
+#### Qualifier Partitioning in `data/view`:
+In SketchwareX, responsive variants are saved directly in the project `view` file using qualifier section tags:
+
+```text
+@main.xml
+# Base portrait / default layout
+
+@main-land.xml
+# Landscape orientation variant (res/layout-land/main.xml)
+
+@main-sw600dp.xml
+# 7-inch tablets variant (res/layout-sw600dp/main.xml)
+
+@main-sw720dp.xml
+# 10-inch tablets variant (res/layout-sw720dp/main.xml)
+
+@main-w840dp.xml
+# Foldables and large desktop displays (res/layout-w840dp/main.xml)
+```
+
+#### How SketchwareX Compiles Responsive Layouts:
+1. `file` registers each variant with its `qualifier` property in `ProjectFileBean` (e.g. `"qualifier": "-land"`).
+2. During APK compilation, `a.a.a.ProjectBuilder` reads each section and writes the generated XML into the corresponding Android resource directory:
+   * `@main.xml` -> `res/layout/main.xml`
+   * `@main-land.xml` -> `res/layout-land/main.xml`
+   * `@main-sw600dp.xml` -> `res/layout-sw600dp/main.xml`
+3. At runtime, the Android framework automatically inflates the matching layout based on device orientation or screen dimensions without any manual Java code!
 
 ---
 

@@ -283,18 +283,31 @@ calculateTax:calculateTax %d.amount %d.rate
 ```
 
 ### 4.5 Events Registry (`@<JavaName>_events`)
-Line-separated `EventBean` JSON objects:
+Line-separated `EventBean` JSON objects declaring dynamic view listeners, component callbacks, and optional lifecycle hooks:
 ```json
 {"eventName":"onClick","eventType":1,"targetId":"button1","targetType":3}
-{"eventName":"initializeLogic","eventType":3,"targetId":"","targetType":0}
+{"eventName":"onCheckedChanged","eventType":1,"targetId":"switch1","targetType":13}
+{"eventName":"onBackPressed","eventType":3,"targetId":"onBackPressed","targetType":0}
 ```
 * **`eventType`**:
   * `1`: VIEW event
   * `2`: COMPONENT event
-  * `3`: ACTIVITY event
+  * `3`: ACTIVITY event (optional lifecycle hooks: `onBackPressed`, `onStart`, `onResume`, `onPause`, `onStop`, `onDestroy`, `onCustomMethod`)
   * `4`: DRAWER_VIEW event
   * `6`: CUSTOM_VIEW event
-* **`targetType`**: The integer `viewType` or `componentType` of the target.
+* **`targetType`**: The integer `viewType` or `componentType` of the target (e.g. `3` for Button, `13` for Switch, `0` for Activity).
+
+> [!CAUTION]
+> **NEVER Add `initializeLogic` / `onCreate` to `@<JavaName>_events` (Dual onCreate Bug)**:
+> In Sketchware, `a.a.a.rs.java` (line 222) **automatically and unconditionally injects `onCreate` (`initializeLogic`) into the Activity Events list** at index 0 when rendering the UI:
+> ```java
+> EventBean eventBean2 = new EventBean(EventBean.EVENT_TYPE_ACTIVITY, -1, "onCreate", "initializeLogic");
+> eventBean2.initValue();
+> activityEvents.add(eventBean2);
+> ```
+> If `@<JavaName>_events` ALSO includes an entry for `initializeLogic` (e.g. `{"eventName":"initializeLogic","eventType":3,...}`), Sketchware loads both the hardcoded built-in entry and the file entry, resulting in **two duplicate `onCreate` ("On activity create") event cards** displayed in the Activity tab!
+>
+> * **The Rule**: `onCreate` blocks must reside exclusively under the section `@<JavaName>_onCreate_initializeLogic`. **DO NOT add `initializeLogic` to `@<JavaName>_events`.**
 
 ### 4.6 Variables & Lists: Operational Specification & Engine Limitations
 
@@ -792,4 +805,6 @@ When writing scripts, tools, or direct modifications to Sketchware project files
 >    All identifiers in `@<JavaName>_var` and `@<JavaName>_list` must strictly match regex `^[a-zA-Z][a-zA-Z0-9_]*` and cannot exceed 20 characters. They cannot begin with numbers or underscores, and cannot collide with the 150+ reserved engine keywords in `a.a.a.uq.b` or existing View IDs.
 > 8. **All Numbers Compiled as `double`**:
 >    Sketchware's type engine has no primitive `int` variable type. All numeric variables are declared as `private double <name>;`. Division by zero never throws `ArithmeticException` but evaluates to `Double.POSITIVE_INFINITY` or `Double.NaN`.
+> 9. **NEVER Register `initializeLogic` in `@<JavaName>_events` (Dual `onCreate` Fix)**:
+>    `onCreate` is built-in and hardcoded into `activityEvents` by `a.a.a.rs.java:222`. Registering `initializeLogic` in `@<JavaName>_events` causes duplicate "On activity create" cards in the Activity Event tab. Its block tree belongs solely in `@<JavaName>_onCreate_initializeLogic`.
 

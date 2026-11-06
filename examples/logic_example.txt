@@ -15,7 +15,6 @@ updateStatusText:updateStatusText %s.newStatus
 {"componentId":"sp","param1":"calculatorPrefs","param2":"","param3":"","type":2}
 
 @MainActivity.java_events
-{"eventName":"initializeLogic","eventType":3,"targetId":"","targetType":0}
 {"eventName":"onClick","eventType":1,"targetId":"button_toggle","targetType":3}
 
 @MainActivity.java_onCreate_initializeLogic

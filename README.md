@@ -1,2 +1,2 @@
-# SW_Skill
+# SWX_Skill
 A Sketchware pro project skill

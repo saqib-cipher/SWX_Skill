@@ -1,0 +1,41 @@
+@MainActivity.java_var
+1:isScaled
+2:clickCount
+3:statusMessage
+
+@MainActivity.java_list
+1:numberList
+2:stringList
+
+@MainActivity.java_func
+updateStatusText:updateStatusText %s.newStatus
+
+@MainActivity.java_components
+{"componentId":"timer1","param1":"","param2":"","param3":"","type":5}
+{"componentId":"sp","param1":"calculatorPrefs","param2":"","param3":"","type":2}
+
+@MainActivity.java_events
+{"eventName":"initializeLogic","eventType":3,"targetId":"","targetType":0}
+{"eventName":"onClick","eventType":1,"targetId":"button_toggle","targetType":3}
+
+@MainActivity.java_onCreate_initializeLogic
+{"color":-16354097,"id":"10","nextBlock":11,"opCode":"setVisible","parameters":["textview1","visible"],"spec":"%m.view setVisible %m.visible","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setVisible"}
+{"color":-16354097,"id":"11","nextBlock":13,"opCode":"setEnable","parameters":["button_toggle","@12"],"spec":"%m.view setEnable %b","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setEnable"}
+{"color":-16729254,"id":"12","nextBlock":-1,"opCode":"true","parameters":[],"spec":"true","subStack1":-1,"subStack2":-1,"type":"b","typeName":"true"}
+{"color":-12479778,"id":"13","nextBlock":-1,"opCode":"setVarBoolean","parameters":["isScaled","@14"],"spec":"set %m.varBoolean to %b","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setVarBoolean"}
+{"color":-16729254,"id":"14","nextBlock":-1,"opCode":"false","parameters":[],"spec":"false","subStack1":-1,"subStack2":-1,"type":"b","typeName":"false"}
+
+@MainActivity.java_button_toggle_onClick
+{"color":-17842,"id":"20","nextBlock":-1,"opCode":"ifElse","parameters":["@21"],"spec":"if %b then %c else %c","subStack1":22,"subStack2":25,"type":"c","typeName":"ifElse"}
+{"color":-16729254,"id":"21","nextBlock":-1,"opCode":"booleanAnd","parameters":["@30","@31"],"spec":"%b and %b","subStack1":-1,"subStack2":-1,"type":"b","typeName":"booleanAnd"}
+{"color":-16729254,"id":"30","nextBlock":-1,"opCode":"getVar","parameters":["isScaled"],"spec":"%m.varBoolean","subStack1":-1,"subStack2":-1,"type":"b","typeName":"boolean"}
+{"color":-16729254,"id":"31","nextBlock":-1,"opCode":"true","parameters":[],"spec":"true","subStack1":-1,"subStack2":-1,"type":"b","typeName":"true"}
+{"color":-16354097,"id":"22","nextBlock":23,"opCode":"setScaleY","parameters":["textview1","1"],"spec":"%m.view setScaleY %d","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setScaleY"}
+{"color":-16354097,"id":"23","nextBlock":24,"opCode":"setText","parameters":["textview1","Normal Scale (1x)"],"spec":"%m.textview setText %s","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setText"}
+{"color":-12479778,"id":"24","nextBlock":-1,"opCode":"setVarBoolean","parameters":["isScaled","@32"],"spec":"set %m.varBoolean to %b","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setVarBoolean"}
+{"color":-16729254,"id":"32","nextBlock":-1,"opCode":"false","parameters":[],"spec":"false","subStack1":-1,"subStack2":-1,"type":"b","typeName":"false"}
+{"color":-16354097,"id":"25","nextBlock":26,"opCode":"setScaleY","parameters":["textview1","28"],"spec":"%m.view setScaleY %d","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setScaleY"}
+{"color":-16354097,"id":"26","nextBlock":27,"opCode":"setText","parameters":["textview1","Scaled Up (28x)"],"spec":"%m.textview setText %s","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setText"}
+{"color":-12479778,"id":"27","nextBlock":-1,"opCode":"setVarBoolean","parameters":["isScaled","@33"],"spec":"set %m.varBoolean to %b","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setVarBoolean"}
+{"color":-16729254,"id":"33","nextBlock":-1,"opCode":"true","parameters":[],"spec":"true","subStack1":-1,"subStack2":-1,"type":"b","typeName":"true"}
+

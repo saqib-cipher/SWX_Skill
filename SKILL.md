@@ -151,14 +151,16 @@ Decrypted format is a single JSON map:
 Plaintext JSON map managed by `mod.hey.studios.project.ProjectSettings`:
 ```json
 {
-  "min_sdk": "21",
-  "target_sdk": "33",
-  "compile_sdk": "33",
-  "java_version": "11",
+  "min_sdk": "24",
+  "target_sdk": "34",
+  "compile_sdk": "34",
+  "java_version": "17",
   "build_system": "sketchware",
   "enable_native": "true",
   "enable_viewbinding": "false",
   "enable_bridgeless_themes": "true",
+  "disable_old_methods": "true",
+  "xml_command": "true",
   "manifest_manual_edit_enabled": "false",
   "universal_dimens": "false",
   "project_template": "1",
@@ -168,6 +170,39 @@ Plaintext JSON map managed by `mod.hey.studios.project.ProjectSettings`:
   "gradle_kotlin_version": "1.9.24"
 }
 ```
+
+### 3.3 Auxiliary Configuration Files
+Located in `.sketchware/data/<sc_id>/`:
+
+* **`build_config`** (Plaintext JSON):
+  Controls compiler engine and JVM target versions:
+  ```json
+  {
+    "dexer": "D8",
+    "java_ver": "17",
+    "classpath": "",
+    "enable_logcat": "false",
+    "no_http_legacy": "false",
+    "no_warn": "false",
+    "android_jar": ""
+  }
+  ```
+* **`view_root`** (Plaintext JSON):
+  Customizes the top-level XML root layout element per screen:
+  ```json
+  {
+    "main.xml": {
+      "class_name": "LinearLayout",
+      "attributes": {
+        "android:layout_width": "match_parent",
+        "android:layout_height": "match_parent",
+        "android:orientation": "vertical"
+      }
+    }
+  }
+  ```
+* **`stringfog`** (Plaintext JSON): String encryption/obfuscation toggle: `{"enabled": "false"}`.
+* **`proguard`** (Plaintext JSON): ProGuard build toggle: `{"enabled": "false", "debug": "false"}`.
 
 ---
 
@@ -305,6 +340,17 @@ Here, `"parameters": ["button1", "@11"]` embeds the boolean reporter block `"11"
 * `subStack1: 12` points to the `then` branch (`setVisible: visible`).
 * `subStack2: 13` points to the `else` branch (`setVisible: gone`).
 
+### 5.5 Event Argument Access (`getArg`)
+When an event or MoreBlock provides callback arguments (such as `isChecked` in `onCheckedChange`, `position` in `onItemClick`, or custom parameters in MoreBlocks), blocks retrieve the value using the `getArg` opcode:
+
+```json
+{"color":-7711273,"id":"14","nextBlock":-1,"opCode":"getArg","parameters":[],"spec":"isChecked","subStack1":-1,"subStack2":-1,"type":"b","typeName":""}
+{"color":-7711273,"id":"13","nextBlock":-1,"opCode":"getArg","parameters":[],"spec":"position","subStack1":-1,"subStack2":-1,"type":"d","typeName":""}
+```
+* `spec`: Exactly matches the parameter name (e.g. `"isChecked"`, `"position"`, `"value"`).
+* `type`: Return type (`"b"` for boolean, `"d"` for number/double, `"s"` for string).
+* Can be passed directly via `@<id>` into statement blocks (e.g. `parameters: ["@14"]`).
+
 ---
 
 ## 6. View & Widget UI System (`view`)
@@ -391,17 +437,25 @@ Child widgets declare `"parent": "linear1"` and `"index": 0` (or `1`, `2`, etc.)
 * `-2`: `WRAP_CONTENT`
 * `> 0`: Exact density-independent pixel (`dp`) values.
 
+### 6.5 Custom View Subclasses (`convert`) & XML Injection (`inject`)
+Sketchware supports binding widgets to custom Java subclasses and injecting custom XML properties:
+* **`convert`**: Sets the full qualified Java class name of a custom widget (e.g. `"convert": "com.my.Mbutton.ModernFButton"`). When generating layout XML, Sketchware outputs `<com.my.Mbutton.ModernFButton ...>` instead of the default Android widget tag.
+* **`inject`**: Injects raw XML attributes directly into the generated widget element (e.g. `"inject": "android:text=\"Default\" app:cornerRadius=\"12dp\""`). This allows applying custom themes, namespaces, and vendor-specific XML properties without modifying the visual layout editor.
+
 ---
 
 ## 7. Screen & Activity Definitions (`file`)
 
 The `file` data file stores the list of activities, fragments, and custom view templates.
 
-### 7.1 Schema (`ProjectFileBean`)
-Line-separated JSON objects:
-```json
+### 7.1 Schema & Section Delimiters (`ProjectFileBean`)
+When decrypted, `file` contains sections partitioned by `@activity` and `@customview`:
+```text
+@activity
 {"fileName":"main","fileType":0,"keyboardSetting":0,"options":9,"orientation":0,"qualifier":""}
 {"fileName":"settings","fileType":0,"keyboardSetting":2,"options":1,"orientation":0,"qualifier":""}
+
+@customview
 {"fileName":"item_card","fileType":1,"keyboardSetting":0,"options":0,"orientation":0,"qualifier":""}
 ```
 
@@ -460,24 +514,58 @@ Components represent Android system services and third-party libraries (intents,
 
 ---
 
-## 9. Library Manager (`library`)
+## 9. Resource Management & Vector Graphics (`resource`)
 
-The `library` file defines built-in SDK integrations.
-```json
-{"libType":1,"useYn":"Y"}
-{"libType":0,"useYn":"N","reserved1":"","reserved2":"","reserved3":"","data":""}
-{"libType":2,"useYn":"N"}
-{"libType":9,"useYn":"Y","reserved1":"https://xyz.supabase.co","reserved2":"eyJhbGciOi...","reserved3":"users","data":"uploads"}
+The encrypted `resource` file registers all image, audio, and typography assets used in the project.
+
+### 9.1 Resource File Section Delimiters
+When decrypted, the file is partitioned into three sections:
+```text
+@images
+{"resFullName":"iconw.xml","resName":"iconw","resType":1}
+{"resFullName":"logo.png","resName":"logo","resType":0}
+
+@sounds
+{"resFullName":"beep.mp3","resName":"beep","resType":0}
+
+@fonts
+{"resFullName":"poppins_bold.ttf","resName":"poppins_bold","resType":0}
 ```
-* **`libType: 1`**: AndroidX AppCompat (`useYn: "Y"`).
-* **`libType: 0`**: Firebase (`reserved1`: API Key, `reserved2`: Database URL, `reserved3`: Bucket, `data`: App ID).
-* **`libType: 2`**: AdMob (`adUnits`, `testDevices`).
-* **`libType: 3`**: Google Maps (`reserved1`: Maps API Key).
-* **`libType: 9`**: Supabase (`reserved1`: Project URL, `reserved2`: Anon Key, `reserved3`: Default Table, `data`: Default Bucket).
+
+### 9.2 Resource Types (`ProjectResourceBean`)
+* **`resType: 0`**: Standard bitmap image (PNG/JPG), audio track (MP3/WAV), or font file (TTF/OTF).
+* **`resType: 1`**: Android Vector Drawable XML (generated from vector asset importers or SVG conversions).
+
+### 9.3 Vector Asset Import Pipeline (`converted-vectors/`)
+When SVG vector drawables are imported into Sketchware:
+1. The original vector file is preserved in `.sketchware/data/<sc_id>/converted-vectors/<name>.svg`.
+2. Sketchware parses the SVG path data and generates a native Android Vector Drawable XML file saved to `.sketchware/resources/images/<sc_id>/<name>.xml`.
+3. An entry is added to `resource` under `@images` with `"resType": 1`.
 
 ---
 
-## 10. DayDream Settings & Native C/C++ (`DataDayDream.json`)
+## 10. Library Manager (`library`)
+
+The `library` file defines built-in SDK integrations, partitioned by dedicated section headers:
+```text
+@firebaseDB
+{"adUnits":[],"appId":"","configurations":{},"data":"","libType":0,"reserved1":"","reserved2":"","reserved3":"","testDevices":[],"useYn":"N"}
+@compat
+{"adUnits":[],"appId":"","configurations":{},"data":"","libType":1,"reserved1":"","reserved2":"","reserved3":"","testDevices":[],"useYn":"Y"}
+@admob
+{"adUnits":[],"appId":"","configurations":{},"data":"","libType":2,"reserved1":"","reserved2":"","reserved3":"","testDevices":[],"useYn":"N"}
+@googleMap
+{"adUnits":[],"appId":"","configurations":{},"data":"","libType":3,"reserved1":"","reserved2":"","reserved3":"","testDevices":[],"useYn":"N"}
+```
+* **`@compat` (`libType: 1`)**: AndroidX AppCompat integration (`useYn: "Y"`).
+* **`@firebaseDB` (`libType: 0`)**: Firebase Database & Storage (`reserved1`: API Key, `reserved2`: Database URL, `reserved3`: Bucket, `data`: App ID).
+* **`@admob` (`libType: 2`)**: Google AdMob (`adUnits`, `testDevices`).
+* **`@googleMap` (`libType: 3`)**: Google Maps SDK (`reserved1`: Maps API Key).
+* **`libType: 9`**: Supabase SDK (`useYn: "Y"`, `reserved1`: URL, `reserved2`: Anon Key, `reserved3`: Default Table, `data`: Default Bucket).
+
+---
+
+## 11. DayDream Settings & Native C/C++ (`DataDayDream.json`)
 
 Stored in plaintext JSON at `.sketchware/data/<sc_id>/DataDayDream.json`:
 ```json
@@ -502,7 +590,7 @@ Stored in plaintext JSON at `.sketchware/data/<sc_id>/DataDayDream.json`:
 
 ---
 
-## 11. Custom Code, Assets & Manifest Injection Paths
+## 12. Custom Code, Assets & Manifest Injection Paths
 
 Located under `.sketchware/data/<sc_id>/`:
 
@@ -521,7 +609,7 @@ Located under `.sketchware/data/<sc_id>/`:
 
 ---
 
-## 12. Build & Compilation Pipeline
+## 13. Build & Compilation Pipeline
 
 When a project is built, `a.a.a.ProjectBuilder` executes the following sequence:
 
@@ -543,11 +631,11 @@ flowchart TD
 
 ---
 
-## 13. SWB (`.swb`) Backup Archive Specification & Creation
+## 14. SWB (`.swb`) Backup Archive Specification & Creation
 
 An `.swb` (Sketchware Backup) file is a standard ZIP archive (Deflate compression) containing a complete snapshot of a project. It is cross-compatible across Sketchware, Sketchware Pro, Sketchware-DayGreen, and Desktop SketchwareX.
 
-### 13.1 Internal Archive File Layout
+### 14.1 Internal Archive File Layout
 Inside any valid `.swb` file:
 
 ```text
@@ -583,7 +671,7 @@ my_project.swb (ZIP Archive)
         └── AndroidManifest.xml
 ```
 
-### 13.2 Rules for Creating a Valid `.swb` Archive
+### 14.2 Rules for Creating a Valid `.swb` Archive
 1. **Archive Format**: Standard ZIP format with `.swb` extension.
 2. **Encryption Boundary**:
    - `project`, `data/file`, `data/view`, `data/logic`, `data/resource`, and `data/library` **MUST be encrypted** using AES-128-CBC PKCS5Padding with key and IV `"sketchwaresecure"`.
@@ -596,7 +684,7 @@ my_project.swb (ZIP Archive)
    - When packaging into `.swb`, the `<sc_id>` subfolder is stripped so files reside directly under `resources/images/`, `resources/sounds/`, `resources/fonts/`, and `resources/icons/icon.png`.
    - Each resource folder (except `icons`) must contain an empty `.nomedia` file to prevent Android MediaScanner from polluting the user's gallery.
 
-### 13.3 Programmatic Packaging via Tool (`SwbTool.ps1`)
+### 14.3 Programmatic Packaging via Tool (`SwbTool.ps1`)
 Use the included tool in `scripts/SwbTool.ps1` to automate packaging and extraction:
 
 ```powershell
@@ -614,7 +702,7 @@ powershell -ExecutionPolicy Bypass -File .agents/skills/sketchware-project-syste
     -OutputDir "C:/path/to/extracted_folder"
 ```
 
-### 13.4 How Sketchware Restores an `.swb` Archive
+### 14.4 How Sketchware Restores an `.swb` Archive
 When Sketchware restores a backup (`mod.hey.studios.project.backup.BackupFactory` / `BackupCore.java`):
 1. **Unzip**: The `.swb` archive is uncompressed into a temporary folder.
 2. **ID Allocation**: It inspects existing project IDs in `.sketchware/mysc/list/` and allocates a new available `sc_id` (e.g. `602`).
@@ -626,7 +714,7 @@ When Sketchware restores a backup (`mod.hey.studios.project.backup.BackupFactory
 
 ---
 
-## 14. Limitations, Constraints & Safe Modification Rules
+## 15. Limitations, Constraints & Safe Modification Rules
 
 When writing scripts, tools, or direct modifications to Sketchware project files:
 

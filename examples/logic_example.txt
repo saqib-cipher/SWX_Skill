@@ -1,7 +1,7 @@
 @MainActivity.java_var
-1:isScaled
-2:clickCount
-3:statusMessage
+0:isScaled
+1:clickCount
+2:statusMessage
 
 @MainActivity.java_list
 1:numberList

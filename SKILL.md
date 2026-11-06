@@ -133,7 +133,7 @@ Decrypted format is a single JSON map:
   "my_sc_pkg_name": "com.my.calculator",
   "my_sc_ver_code": "1",
   "my_sc_ver_name": "1.0",
-  "sc_ver_code": 1,
+  "sc_ver_code": "1",
   "sc_ver_name": "1.0",
   "color_primary": -16743456,
   "color_primary_dark": -16751424,
@@ -146,6 +146,17 @@ Decrypted format is a single JSON map:
   "proj_type": 1
 }
 ```
+
+> [!CAUTION]
+> **Strict String Typing in `project` (ClassCastException Prevention)**:
+> In `project`, the version fields `"sc_ver_code"`, `"sc_ver_name"`, `"my_sc_ver_code"`, and `"my_sc_ver_name"` **MUST be formatted as JSON strings** (e.g. `"sc_ver_code": "1"`, never an unquoted integer `1`).
+> In Sketchware, `com.besome.sketch.adapters.ProjectsAdapter` (line 129) accesses these fields via `a.a.a.yB.c(projectMap, "sc_ver_code")` which casts `(String) projectMap.get(key)`. If serialized as a raw JSON number, `Gson` parses it into `java.lang.Double`, which immediately causes a fatal crash:
+> ```text
+> java.lang.ClassCastException: java.lang.Double cannot be cast to java.lang.String
+>  at a.a.a.yB.c(dex-id-...:6)
+>  at com.besome.sketch.adapters.ProjectsAdapter.onBindViewHolder(ProjectsAdapter.java:129)
+> ```
+> Always guarantee quotes around version codes and names.
 
 ### 3.2 Extended Build Settings (`.sketchware/data/<sc_id>/project_config`)
 Plaintext JSON map managed by `mod.hey.studios.project.ProjectSettings`:
@@ -251,14 +262,16 @@ For view event listeners, the section header includes the view ID:
 ```
 
 ### 4.2 Variables (`@<JavaName>_var`)
-Defined as line-separated `type:name` entries:
-* `1`: `boolean` (e.g. `1:isReady`)
-* `2`: `double` (e.g. `2:counter`)
-* `3`: `String` (e.g. `3:userName`)
-* `4`: `Map<String, Object>` (e.g. `4:userProfile`)
+Defined as line-separated `type:name` entries (`a.a.a.mq.c`):
+* `0`: `boolean` (e.g. `0:isReady`)
+* `1`: `double` (number, e.g. `1:counter`)
+* `2`: `String` (e.g. `2:userName`)
+* `3`: `Map<String, Object>` (e.g. `3:userProfile`)
+* `6`: Raw variable / custom field declaration (e.g. `6:private MyCustomClass myCustomVar;`)
+* `9`: Custom import injection (e.g. `9:java.util.UUID`)
 
 ### 4.3 Lists (`@<JavaName>_list`)
-Defined as line-separated `type:name` entries:
+Defined as line-separated `type:name` entries (`a.a.a.mq.b`):
 * `1`: `ArrayList<Double>` (number list, e.g. `1:scores`)
 * `2`: `ArrayList<String>` (string list, e.g. `2:names`)
 * `3`: `ArrayList<HashMap<String, Object>>` (map list, e.g. `3:itemsList`)
@@ -282,6 +295,47 @@ Line-separated `EventBean` JSON objects:
   * `4`: DRAWER_VIEW event
   * `6`: CUSTOM_VIEW event
 * **`targetType`**: The integer `viewType` or `componentType` of the target.
+
+### 4.6 Variables & Lists: Operational Specification & Engine Limitations
+
+Sketchware manages activity-scoped variables and lists with strict engine rules enforced by `a.a.a.VB`, `a.a.a.mq`, and `a.a.a.Jx`:
+
+#### 1. Type Mapping & Bytecode Declarations
+When building an Activity, `a.a.a.Jx` generates Java field declarations from the decrypted entries:
+
+| Scope | Type ID | In-File Syntax | Generated Java Bytecode / Field Declaration | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **Variable** | `0` | `0:isReady` | `private boolean isReady;` | Default initialized to `false` |
+| **Variable** | `1` | `1:counter` | `private double counter;` | **All numbers in Sketchware are `double`**; integers are cast via `(int)(...)` |
+| **Variable** | `2` | `2:title` | `private String title = "";` | String instance field |
+| **Variable** | `3` | `3:metadata` | `private HashMap<String, Object> metadata = new HashMap<>();` | Key-value dictionary |
+| **Variable** | `6` | `6:private MyClass c;` | Directly emitted as class field body | Custom typed field |
+| **Variable** | `9` | `9:java.util.UUID` | `import java.util.UUID;` | Injected into top activity imports |
+| **List** | `1` | `1:scores` | `private ArrayList<Double> scores = new ArrayList<>();` | Number list; values boxed via `Double.valueOf(...)` |
+| **List** | `2` | `2:names` | `private ArrayList<String> names = new ArrayList<>();` | String list |
+| **List** | `3` | `3:rows` | `private ArrayList<HashMap<String, Object>> rows = new ArrayList<>();` | Map list for ListViews/RecyclerAdapters |
+
+#### 2. Naming Constraints & Validation Rules (`a.a.a.VB`)
+All variable and list identifiers are validated using `Pattern.compile("^[a-zA-Z][a-zA-Z0-9_]*")`:
+* **Character 0 Constraint**: The first character **MUST be an ASCII letter** (`A-Z` or `a-z`). It cannot begin with a number or an underscore (`_`).
+* **Allowed Characters**: Subsequent characters may only be ASCII letters, numbers `0-9`, and underscores `_`. No spaces or special symbols allowed.
+* **Length Limits**: Minimum length is **1 character**; maximum length is **20 characters** (enforced by `a.a.a.VB.java` and `MoreblockValidator.java`).
+* **Reserved Keyword Prohibitions (`a.a.a.uq.b`)**:
+  Identifiers cannot collide with Java keywords or Sketchware engine symbols (e.g. `abstract`, `boolean`, `break`, `double`, `int`, `String`, `root`, `onCreate`, `onClick`, `LinearLayout`, `R`, `true`, `false`, `none`, `intent`, `timer`, etc.).
+* **Unique Namespace Guarantee**:
+  A variable cannot share a name with:
+  1. Any View ID in the activity (`linear1`, `text1`, `button1`).
+  2. Any Component ID in the activity (`timer1`, `sp`, `dialog1`).
+  3. Any other variable or list in the same activity.
+
+#### 3. Scope, Lifecycle & State Preservation Limitations
+* **Activity-Scoped**: Variables exist only as instance fields of their specific `Activity` class. They are **not global** across screens.
+* **Destruction & Volatility**: Variables reset to default values upon Activity finish, screen rotation (if recreation is triggered), or Android OS process termination.
+* **Inter-Screen Sharing**: To pass values between screens, always use:
+  * `Intent.putExtra(key, value)`
+  * `SharedPreferences` component
+  * A static Application cache / singleton (`addSourceDirectly`)
+* **Floating-Point Arithmetic Limitation**: Because all numbers are `double`, division by zero evaluates to `Double.POSITIVE_INFINITY` or `Double.NaN` rather than throwing `ArithmeticException`. Always check for zero or `Double.isInfinite()` when calculating.
 
 ---
 
@@ -730,4 +784,12 @@ When writing scripts, tools, or direct modifications to Sketchware project files
 >    Sketchware's built-in ECJ compiler targets Java 8 / Java 11 bytecode. Do not use Java 17+ APIs (such as `InputStream.readAllBytes()`, which requires Android API 33+) unless the target device supports it.
 > 5. **Always Re-Encrypt Core Data Files**:
 >    Before triggering an editor reload or compilation, all modified core files (`project`, `file`, `logic`, `view`, `resource`, `library`) **MUST** be re-encrypted using AES-128-CBC with key `"sketchwaresecure"`.
+> 6. **Strict String Typing for Version Fields in `project` (`ClassCastException` Trap)**:
+>    In the `project` JSON file, fields `"sc_ver_code"`, `"sc_ver_name"`, `"my_sc_ver_code"`, and `"my_sc_ver_name"` **MUST be formatted as JSON strings** (`"1"`, not integer `1`).
+>    In `ProjectsAdapter.java:129`, Sketchware evaluates `yB.c(projectMap, "sc_ver_code")` which executes `(String) map.get(...)`. Unquoted JSON numbers are parsed by `Gson` as `java.lang.Double`, causing an immediate crash:
+>    `java.lang.ClassCastException: java.lang.Double cannot be cast to java.lang.String at com.besome.sketch.adapters.ProjectsAdapter.onBindViewHolder(ProjectsAdapter.java:129)`
+> 7. **Variable & List Name Constraints (`a.a.a.VB`)**:
+>    All identifiers in `@<JavaName>_var` and `@<JavaName>_list` must strictly match regex `^[a-zA-Z][a-zA-Z0-9_]*` and cannot exceed 20 characters. They cannot begin with numbers or underscores, and cannot collide with the 150+ reserved engine keywords in `a.a.a.uq.b` or existing View IDs.
+> 8. **All Numbers Compiled as `double`**:
+>    Sketchware's type engine has no primitive `int` variable type. All numeric variables are declared as `private double <name>;`. Division by zero never throws `ArithmeticException` but evaluates to `Double.POSITIVE_INFINITY` or `Double.NaN`.
 

@@ -276,11 +276,77 @@ Defined as line-separated `type:name` entries (`a.a.a.mq.b`):
 * `2`: `ArrayList<String>` (string list, e.g. `2:names`)
 * `3`: `ArrayList<HashMap<String, Object>>` (map list, e.g. `3:itemsList`)
 
-### 4.4 MoreBlocks (`@<JavaName>_func`)
+### 4.4 MoreBlocks (`@<JavaName>_func`) & Argument Access
+MoreBlocks (custom user-defined methods) allow modularizing block logic across an Activity.
+
+#### 1. Registration Syntax (`@<JavaName>_func`)
 Defined as line-separated `name:spec` entries:
 ```text
+@MainActivity.java_func
 calculateTax:calculateTax %d.amount %d.rate
+showCustomToast:showCustomToast %s.message
+animateWidget:animateWidget %m.view %d.translationY
 ```
+* **Function Identifier (`name`)**: Valid Java identifier (`^[a-zA-Z][a-zA-Z0-9_]*$`).
+* **Specification Template (`spec`)**:
+  * Begins with the function name followed by a space and parameter tokens.
+  * Supported Parameter Tokens (`a.a.a.mq.a` & `a.a.a.FB.c`):
+    * `%b` or `%b.<name>`: `boolean` parameter (Boolean reporter socket)
+    * `%d` or `%d.<name>`: `double` / number parameter (Number reporter socket)
+    * `%s` or `%s.<name>`: `String` parameter (String reporter socket)
+    * `%m.varBool`: Variable Boolean dropdown selector
+    * `%m.varInt`: Variable Number dropdown selector
+    * `%m.varStr`: Variable String dropdown selector
+    * `%m.varMap`: Variable Map dropdown selector
+    * `%m.listInt`: List Number dropdown selector
+    * `%m.listStr`: List String dropdown selector
+    * `%m.listMap`: List Map dropdown selector
+    * `%m.view`: Generic View dropdown selector
+    * Specific widget selectors: `%m.textview`, `%m.edittext`, `%m.imageview`, `%m.switch`, `%m.checkbox`, `%m.listview`, `%m.spinner`, `%m.webview`
+    * Component selectors: `%m.intent`, `%m.file`, `%m.calendar`, `%m.vibrator`, `%m.timer`, `%m.dialog`, `%m.bottomsheet`, `%m.mediaplayer`, `%m.soundpool`, `%m.objectanimator`, `%m.firebase`, `%m.firebaseauth`, `%m.firebasestorage`, `%m.requestnetwork`, `%m.texttospeech`, `%m.speechtotext`, `%m.bluetoothconnect`, `%m.locationmanager`
+
+#### 2. Body Section Delimiter (`@<JavaName>_<funcName>_<funcName>`)
+The block definition body for a moreblock resides under its own section:
+```text
+@MainActivity.java_calculateTax_calculateTax
+<BlockBean JSON>
+<BlockBean JSON>
+```
+*(Notice both the targetId and eventName match `<funcName>`)*
+
+#### 3. Reading Arguments Inside MoreBlock Body (`getArg`)
+Inside the moreblock's body section, parameters defined in the spec are retrieved using the `getArg` reporter block:
+```json
+{"color":-8735824,"id":"10","nextBlock":-1,"opCode":"getArg","parameters":[],"spec":"amount","subStack1":-1,"subStack2":-1,"type":"d","typeName":"getArg"}
+{"color":-8735824,"id":"11","nextBlock":-1,"opCode":"getArg","parameters":[],"spec":"rate","subStack1":-1,"subStack2":-1,"type":"d","typeName":"getArg"}
+```
+* **`opCode`**: `"getArg"`.
+* **`typeName`**: `"getArg"`.
+* **`spec`**: Exactly matches the parameter token name (e.g. `"amount"`, `"rate"`, `"message"`). **Never prefix with `%d.` or `getArg:`!**
+* **`parameters`**: Always empty array `[]`.
+* **`color`**: `-8735824` (`#7a63b0` purple).
+* **`type`**: `"d"` for number, `"s"` for string, `"b"` for boolean, `"v"` for view, `"p"` for component.
+
+#### 4. Invoking MoreBlocks from Other Events (`definedFunc`)
+To call a moreblock from `onCreate`, a button click, or any other event, use the `definedFunc` caller block:
+```json
+{
+  "color": -8735824,
+  "id": "20",
+  "nextBlock": 21,
+  "opCode": "definedFunc",
+  "parameters": ["1000", "0.15"],
+  "spec": "calculateTax %d.amount %d.rate",
+  "subStack1": -1,
+  "subStack2": -1,
+  "type": " ",
+  "typeName": ""
+}
+```
+* **`opCode`**: `"definedFunc"`.
+* **`spec`**: The exact specification string from `@<JavaName>_func` (e.g. `"calculateTax %d.amount %d.rate"`).
+* **`parameters`**: Ordered array of argument values matching each `%` token in the spec. Can be literal values (e.g. `"1000"`, `"Hello"`) or reporter references (e.g. `"@12"`).
+* **Java Generation (`Fx.java:286-317`)**: Emits `_calculateTax(1000, 0.15);`. (Note: Sketchware prefixes generated moreblock Java methods with `_`).
 
 ### 4.5 Events Registry (`@<JavaName>_events`)
 Line-separated `EventBean` JSON objects declaring dynamic view listeners, component callbacks, and optional lifecycle hooks:
@@ -395,28 +461,74 @@ Reporter and expression blocks (math, boolean conditions, string concatenation) 
 ```
 Here, `"parameters": ["button1", "@11"]` embeds the boolean reporter block `"11"` into the second argument of block `"10"`.
 
-### 5.4 Control Flow & Nesting Example (`ifElse`)
-```json
-{"color":-17842,"id":"10","nextBlock":-1,"opCode":"ifElse","parameters":["@11"],"spec":"if %b then %c else %c","subStack1":12,"subStack2":13,"type":"c","typeName":"ifElse"}
-{"color":-16729254,"id":"11","nextBlock":-1,"opCode":"booleanAnd","parameters":["@14","@15"],"spec":"%b and %b","subStack1":-1,"subStack2":-1,"type":"b","typeName":"booleanAnd"}
-{"color":-16354097,"id":"12","nextBlock":-1,"opCode":"setVisible","parameters":["textview1","visible"],"spec":"%m.view setVisible %m.visible","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setVisible"}
-{"color":-16354097,"id":"13","nextBlock":-1,"opCode":"setVisible","parameters":["textview1","gone"],"spec":"%m.view setVisible %m.visible","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setVisible"}
-```
-* Block `"10"` is an `ifElse` block.
-* Parameter `"@11"` points to the condition block (`booleanAnd`).
-* `subStack1: 12` points to the `then` branch (`setVisible: visible`).
-* `subStack2: 13` points to the `else` branch (`setVisible: gone`).
+### 5.4 Chainable Control Flow (`if`, `elseIf`, `else`)
+In Sketchware Pro and DayGreen, control flow is constructed as a linear chain of C-type container blocks (`type: "c"`, `color: -1988054` / `#e1a92a`) connected sequentially via `nextBlock`, rather than nested `ifElse` structures:
 
-### 5.5 Event Argument Access (`getArg`)
+```json
+{"color":-1988054,"id":"10","nextBlock":12,"opCode":"if","parameters":["@11"],"spec":"if %b then","subStack1":13,"subStack2":-1,"type":"c","typeName":"if"}
+{"color":-16729254,"id":"11","nextBlock":-1,"opCode":"=","parameters":["@14","0"],"spec":"%d = %d","subStack1":-1,"subStack2":-1,"type":"b","typeName":"="}
+{"color":-16354097,"id":"13","nextBlock":-1,"opCode":"setText","parameters":["textview1","n is zero"],"spec":"%m.textview setText %s","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setText"}
+{"color":-1988054,"id":"12","nextBlock":16,"opCode":"elseIf","parameters":["@15"],"spec":"else if %b","subStack1":17,"subStack2":-1,"type":"c","typeName":"elseIf"}
+{"color":-16729254,"id":"15","nextBlock":-1,"opCode":">","parameters":["@18","0"],"spec":"%d > %d","subStack1":-1,"subStack2":-1,"type":"b","typeName":">"}
+{"color":-16354097,"id":"17","nextBlock":-1,"opCode":"setText","parameters":["textview1","n is positive"],"spec":"%m.textview setText %s","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setText"}
+{"color":-1988054,"id":"16","nextBlock":-1,"opCode":"else","parameters":[],"spec":"else","subStack1":19,"subStack2":-1,"type":"c","typeName":"else"}
+{"color":-16354097,"id":"19","nextBlock":-1,"opCode":"setText","parameters":["textview1","n is negative"],"spec":"%m.textview setText %s","subStack1":-1,"subStack2":-1,"type":" ","typeName":"setText"}
+```
+* **Linear Connection**: `if` (id: 10) connects to `elseIf` (id: 12) via `nextBlock: 12`. `elseIf` connects to `else` (id: 16) via `nextBlock: 16`.
+* **SubStacks**: Each branch has its own execution body contained entirely inside `subStack1`. `subStack2` is always `-1`.
+* **Parameters**: `if` and `elseIf` take a single condition parameter (`["@<cond_id>"]`). `else` takes no parameters (`[]`).
+
+### 5.5 Variable Reporter Blocks (`getVar`)
+When referencing a declared variable inside an expression, Math operation, or setter block, the reporter block must use the exact variable name as its `spec` without any prefix:
+
+```json
+{"color":-2389760,"id":"14","nextBlock":-1,"opCode":"getVar","parameters":[],"spec":"n","subStack1":-1,"subStack2":-1,"type":"d","typeName":"getVar"}
+```
+* **`spec`**: Exactly the variable name (e.g. `"n"`, `"count"`, `"title"`). **NEVER use `"getVar: n"` or `"%m.varInt"` in the spec.** Setting `spec` to the variable name causes Sketchware to render cleanly as `( n )` instead of `( getVar : n )`.
+* **`parameters`**: Always an empty array `[]`.
+* **`opCode` & `typeName`**: Both set to `"getVar"`.
+* **`color`**: `-2389760` (`#ee7d16` orange).
+* **`type`**: `"d"` for number/double, `"s"` for String, `"b"` for boolean, `"a"` for Map.
+
+### 5.6 Source-Emitting Comment Blocks (`addSourceDirectlyIf`)
+Standard Sketchware `comment` blocks (`opCode: "comment"` or `"line_comment"`) are ignored during compilation by `a.a.a.Fx.java` and do NOT appear in the final generated Java source code.
+
+To emit real comments into the compiled Java code, always use the C-type `addSourceDirectlyIf` block:
+
+```json
+{"color":-10701022,"id":"10","nextBlock":11,"opCode":"addSourceDirectlyIf","parameters":["// Initialize user session and state"],"spec":"add source directly %s.inputOnly","subStack1":-1,"subStack2":-1,"type":"c","typeName":"addSourceDirectlyIf"}
+```
+* **`opCode`**: `"addSourceDirectlyIf"`.
+* **`type`**: `"c"` (C-type container block shape).
+* **`color`**: `-10701022` (`#5cb722` green).
+* **`spec`**: `"add source directly %s.inputOnly"`.
+* **`parameters`**: Array containing the comment text starting with `// ` or `/* ` (e.g. `["// comment text"]`).
+* **Source Generation**: `Fx.java:602-604` detects that parameter 0 starts with `//` or `/*` and outputs the comment line directly into the activity's Java code.
+
+### 5.7 Event Argument Access (`getArg`)
 When an event or MoreBlock provides callback arguments (such as `isChecked` in `onCheckedChange`, `position` in `onItemClick`, or custom parameters in MoreBlocks), blocks retrieve the value using the `getArg` opcode:
 
 ```json
-{"color":-7711273,"id":"14","nextBlock":-1,"opCode":"getArg","parameters":[],"spec":"isChecked","subStack1":-1,"subStack2":-1,"type":"b","typeName":""}
-{"color":-7711273,"id":"13","nextBlock":-1,"opCode":"getArg","parameters":[],"spec":"position","subStack1":-1,"subStack2":-1,"type":"d","typeName":""}
+{"color":-8735824,"id":"14","nextBlock":-1,"opCode":"getArg","parameters":[],"spec":"isChecked","subStack1":-1,"subStack2":-1,"type":"b","typeName":"getArg"}
+{"color":-8735824,"id":"13","nextBlock":-1,"opCode":"getArg","parameters":[],"spec":"position","subStack1":-1,"subStack2":-1,"type":"d","typeName":"getArg"}
 ```
 * `spec`: Exactly matches the parameter name (e.g. `"isChecked"`, `"position"`, `"value"`).
 * `type`: Return type (`"b"` for boolean, `"d"` for number/double, `"s"` for string).
 * Can be passed directly via `@<id>` into statement blocks (e.g. `parameters: ["@14"]`).
+
+### 5.8 Logic Insertion vs Replacement Rules
+When modifying an event's blocks:
+
+* **Default Behavior: Append / Insert Mode (`replace: false`)**:
+  - When the user asks to "add", "insert", or "append" logic (e.g., "add a timer", "handle click to open screen"), **NEVER wipe out existing event blocks**.
+  - `LogicTools.insertLogicBlocks` resolves existing blocks automatically:
+    1. Determines `maxExistingId` across existing blocks.
+    2. Re-indexes incoming block IDs with `idOffset = maxExistingId + 10` to avoid ID collisions.
+    3. Remaps all internal connections (`nextBlock`, `subStack1`, `subStack2`, and expression references `@<id>`).
+    4. Walks the existing root chain to locate the terminal block (`nextBlock == -1`).
+    5. Sets `tailBlock.nextBlock = firstIncomingId`, cleanly attaching the new logic to the end of the existing chain.
+* **Explicit Override: Replacement Mode (`replace: true`)**:
+  - ONLY pass `replace: true` if the user explicitly states: "replace all blocks", "clear and rewrite event", "reset logic", or "overwrite event".
 
 ---
 
@@ -484,6 +596,25 @@ The `view` file defines the visual layout hierarchy for every screen (`.xml` fil
 | `50` | `VIEW_TYPE_WIDGET_MATERIALSWITCH` | `MaterialSwitch` | `"com.google.android.material.materialswitch.MaterialSwitch"` |
 | `158`| `VIEW_TYPE_LAYOUT_CONSTRAINTLAYOUT` | `ConstraintLayout` | `"androidx.constraintlayout.widget.ConstraintLayout"` |
 | `163`| `VIEW_TYPE_LAYOUT_FRAMELAYOUT` | `android.widget.FrameLayout` | `"FrameLayout"` |
+
+### 6.2.1 The `convert` and `inject` Operational Mechanics
+* **`convert` (Custom Class Substitution)**:
+  In SketchwareX layout XML compilation, `convert` specifies the exact class used as the XML element tag.
+  - For standard Android widgets, `convert` contains the simple or fully qualified class name: `"LinearLayout"`, `"TextView"`, `"Button"`, `"EditText"`, `"ImageView"`, `"Switch"`, etc.
+  - For Material 3 & AndroidX widgets, `convert` MUST be set to the component's full classpath:
+    - MaterialButton (`type: 41`): `convert: "com.google.android.material.button.MaterialButton"`
+    - CardView / MaterialCardView (`type: 36`): `convert: "androidx.cardview.widget.CardView"`
+    - MaterialSwitch (`type: 50`): `convert: "com.google.android.material.materialswitch.MaterialSwitch"`
+    - ViewPager2 (`type: 49`): `convert: "androidx.viewpager2.widget.ViewPager2"`
+    - RecyclerView (`type: 48`): `convert: "androidx.recyclerview.widget.RecyclerView"`
+    - FloatingActionButton (`type: 16`): `convert: ""`
+* **`inject` (Direct XML Attribute Injection)**:
+  `inject` contains raw XML attribute declarations inserted verbatim into the generated XML opening tag during compilation.
+  - Attributes must follow standard Android XML syntax: `namespace:attribute="value"`.
+  - Common patterns:
+    - CardView rounded corners and elevation: `inject: "app:cardCornerRadius=\"16dp\" app:cardElevation=\"4dp\""`
+    - MaterialButton rounded corner: `inject: "app:cornerRadius=\"8dp\""`
+    - MaterialButton icon: `inject: "app:icon=\"@drawable/ic_heart\" app:iconGravity=\"textStart\""`
 
 ### 6.3 Complete ViewBean Real-World JSON Schema
 Each widget is serialized as a single compact JSON line:
@@ -654,6 +785,52 @@ In SketchwareX, responsive variants are saved directly in the project `view` fil
    * `@main-sw600dp.xml` -> `res/layout-sw600dp/main.xml`
 3. At runtime, the Android framework automatically inflates the matching layout based on device orientation or screen dimensions without any manual Java code!
 
+### 6.9 In-Place Layout Mutation (`update_widget`) vs Destructive Removal
+
+> [!CAUTION]
+> **Never remove and re-add widgets to modify their attributes!**
+> In Sketchware, `removeWidget` cascades through all child descendants and removes them permanently. More critically, deleting a widget breaks all connected event listeners (e.g. `button1_onClick` in `@MainActivity.java_events`), causing "Widget not found in this layout: button1" and crashing the editor with `NullPointerException` when opened!
+
+To modify any widget attribute (dimensions, margins, padding, convert class, XML attribute injection, text, hints, or background):
+* **Always use `update_widget`**: Modifies the `ViewBean` in-place while keeping its unique ID, parent container binding, child hierarchy, and attached event handlers completely intact.
+* **Preserve Untouched Properties**: When updating properties like `inject` or `padding`, properties not specified in the update payload (such as `text` or `hint`) are strictly retained.
+
+### 6.10 Color Rules & AAPT2 Error Prevention
+
+> [!CAUTION]
+> **STRICT PROHIBITION: Never Emit Bare or Incomplete `@color/ ` References!**
+> In Sketchware layouts and raw attribute injection (`inject`), writing empty or unclosed color references such as `android:textColor="@color/ "` or `app:cardBackgroundColor="@color/"` crashes the build immediately during AAPT2 resource linking:
+> ```text
+> error: failed to resolve resource '@color/'
+> AAPT: error: invalid resource directory name or failed to resolve resource '@color/'
+> ```
+> Layout tools and AI agents must strictly follow valid color specifications:
+
+#### Valid Color Formats:
+1. **Hexadecimal Notation (Recommended)**:
+   * 8-digit ARGB: `#FFFFFFFF` (white), `#FF121212` (dark surface), `#FF6200EE` (purple), `#FF000000` (black).
+   * 6-digit RGB: `#FFFFFF`, `#121212`, `#6200EE`, `#000000`.
+2. **Signed 32-bit Integer ARGB (`backgroundColor`, `textColor`)**:
+   * White: `-1` (`0xFFFFFFFF`)
+   * Black: `-16777216` (`0xFF000000`)
+   * Transparent: `16777215` (`0x00FFFFFF`)
+   * Dark Surface: `-15461356` (`0xFF141414`)
+   * Orange: `-2389760` (`0xFFEE7D16`)
+3. **Material Theme Attributes**:
+   * `?attr/colorPrimary`
+   * `?attr/colorOnPrimary`
+   * `?attr/colorSurface`
+   * `?attr/colorOnSurface`
+   * `?attr/colorSecondary`
+   * `?attr/colorOutline`
+4. **Standard Android Framework Colors**:
+   * `@android:color/white`
+   * `@android:color/black`
+   * `@android:color/transparent`
+5. **Project Color Resources (`@color/<name>`)**:
+   * ONLY use `@color/<name>` if `<name>` is already declared in `res/values/colors.xml`.
+   * Never invent or guess non-existent color resource names. If unsure, always default to a hex code (`#FFFFFF`) or theme attribute (`?attr/colorPrimary`).
+
 ---
 
 ## 7. Screen & Activity Definitions (`file`)
@@ -691,38 +868,179 @@ When decrypted, `file` contains sections partitioned by `@activity` and `@custom
 
 ---
 
-## 8. Component System
+## 8. Exhaustive Component System Reference
 
-Components represent Android system services and third-party libraries (intents, timers, shared preferences, databases).
+Components represent Android framework system services, architecture primitives, and SDK integrations (intents, timers, shared preferences, databases, sensors).
 
-### 8.1 Component Types (`ComponentBean.java`)
-| ID | Constant | Class / Wrapper |
-| :--- | :--- | :--- |
-| `1` | `COMPONENT_TYPE_INTENT` | `Intent` |
-| `2` | `COMPONENT_TYPE_SHAREDPREF` | `SharedPreferences` |
-| `3` | `COMPONENT_TYPE_CALENDAR` | `Calendar` |
-| `4` | `COMPONENT_TYPE_VIBRATOR` | `Vibrator` |
-| `5` | `COMPONENT_TYPE_TIMERTASK` | `Timer` / `TimerTask` |
-| `6` | `COMPONENT_TYPE_FIREBASE` | `FirebaseDatabase` |
-| `7` | `COMPONENT_TYPE_DIALOG` | `AlertDialog.Builder` |
-| `8` | `COMPONENT_TYPE_MEDIAPLAYER` | `MediaPlayer` |
-| `9` | `COMPONENT_TYPE_SOUNDPOOL` | `SoundPool` |
-| `10`| `COMPONENT_TYPE_OBJECTANIMATOR` | `ObjectAnimator` |
-| `12`| `COMPONENT_TYPE_FIREBASE_AUTH` | `FirebaseAuth` |
-| `14`| `COMPONENT_TYPE_FIREBASE_STORAGE` | `FirebaseStorage` |
-| `17`| `COMPONENT_TYPE_REQUEST_NETWORK` | `RequestNetwork` |
-| `26`| `COMPONENT_TYPE_NOTIFICATION` | `NotificationManager` |
-| `37`| `COMPONENT_TYPE_SUPABASE_DB` | `SupabaseClient.database` |
-| `38`| `COMPONENT_TYPE_SUPABASE_AUTH` | `SupabaseClient.auth` |
-| `39`| `COMPONENT_TYPE_SUPABASE_STORAGE` | `SupabaseClient.storage` |
+### 8.1 Complete Component Types Directory (`ComponentBean.java` & `a.a.a.mq`)
 
-### 8.2 JSON Representation in `@<JavaName>_components`
+| ID | Constant | Type Name (`mq.a`) | Default Var Prefix | Wrapper / Android Class | `param1` / `param2` / `param3` Definition |
+| :---: | :--- | :--- | :---: | :--- | :--- |
+| `1` | `COMPONENT_TYPE_INTENT` | `Intent` | `i` | `android.content.Intent` | `""` |
+| `2` | `COMPONENT_TYPE_SHAREDPREF` | `SharedPreferences` | `sp` | `android.content.SharedPreferences` | `param1`: File name (e.g. `"userData"`) |
+| `3` | `COMPONENT_TYPE_CALENDAR` | `Calendar` | `cal` | `java.util.Calendar` | `""` |
+| `4` | `COMPONENT_TYPE_VIBRATOR` | `Vibrator` | `vib` | `android.os.Vibrator` | `""` |
+| `5` | `COMPONENT_TYPE_TIMERTASK` | `Timer` | `tim` | `java.util.Timer` | `""` |
+| `6` | `COMPONENT_TYPE_FIREBASE` | `FirebaseDB` | `fdb` | `com.google.firebase.database.DatabaseReference` | `param1`: Root path (e.g. `"users"`) |
+| `7` | `COMPONENT_TYPE_DIALOG` | `Dialog` | `dil` | `android.app.AlertDialog.Builder` | `""` |
+| `8` | `COMPONENT_TYPE_MEDIAPLAYER` | `MediaPlayer` | `mp` | `android.media.MediaPlayer` | `""` |
+| `9` | `COMPONENT_TYPE_SOUNDPOOL` | `SoundPool` | `spool` | `android.media.SoundPool` | `param1`: maxStreams (e.g. `"5"`), `param2`: quality (`"0"`) |
+| `10`| `COMPONENT_TYPE_OBJECTANIMATOR` | `ObjectAnimator` | `oa` | `android.animation.ObjectAnimator` | `""` |
+| `11`| `COMPONENT_TYPE_GYROSCOPE` | `Gyroscope` | `gyro` | `android.hardware.SensorManager` | `""` |
+| `12`| `COMPONENT_TYPE_FIREBASE_AUTH` | `FirebaseAuth` | `fauth` | `com.google.firebase.auth.FirebaseAuth` | `""` |
+| `13`| `COMPONENT_TYPE_INTERSTITIAL_AD` | `InterstitialAd` | `ad` | `com.google.android.gms.ads.interstitial.InterstitialAd`| `""` |
+| `14`| `COMPONENT_TYPE_FIREBASE_STORAGE`| `FirebaseStorage` | `fstore` | `com.google.firebase.storage.StorageReference` | `param1`: Bucket URL (e.g. `"gs://app.appspot.com"`) |
+| `15`| `COMPONENT_TYPE_CAMERA` | `Camera` | `camera` | `android.content.Intent` (MediaStore) | `""` |
+| `16`| `COMPONENT_TYPE_FILE_PICKER` | `FilePicker` | `filepicker` | `android.content.Intent` (GET_CONTENT) | `param1`: MIME type filter (e.g. `"*/*"`, `"image/*"`) |
+| `17`| `COMPONENT_TYPE_REQUEST_NETWORK` | `RequestNetwork` | `net` | `pro.sketchware.utility.RequestNetwork` | `""` |
+| `18`| `COMPONENT_TYPE_TEXT_TO_SPEECH` | `TextToSpeech` | `tts` | `android.speech.tts.TextToSpeech` | `""` |
+| `19`| `COMPONENT_TYPE_SPEECH_TO_TEXT` | `SpeechToText` | `stt` | `android.speech.SpeechRecognizer` | `""` |
+| `20`| `COMPONENT_TYPE_BLUETOOTH_CONNECT`| `BluetoothConnect` | `bt` | `android.bluetooth.BluetoothAdapter` | `""` |
+| `21`| `COMPONENT_TYPE_LOCATION_MANAGER` | `LocationManager` | `loc` | `android.location.LocationManager` | `""` |
+| `22`| `COMPONENT_TYPE_REWARDED_VIDEO_AD`| `RewardedVideoAd` | `r_ad` | `com.google.android.gms.ads.rewarded.RewardedAd` | `""` |
+| `23`| `COMPONENT_TYPE_PROGRESS_DIALOG` | `ProgressDialog` | `pd` | `android.app.ProgressDialog` | `""` |
+| `24`| `COMPONENT_TYPE_DATE_PICKER_DIALOG`| `DatePickerDialog`| `dpd` | `android.app.DatePickerDialog` | `""` |
+| `25`| `COMPONENT_TYPE_TIME_PICKER_DIALOG`| `TimePickerDialog`| `tpd` | `android.app.TimePickerDialog` | `""` |
+| `26`| `COMPONENT_TYPE_NOTIFICATION` | `Notification` | `notif` | `android.app.NotificationManager` | `""` |
+| `27`| `COMPONENT_TYPE_FRAGMENT_ADAPTER` | `FragmentStatePagerAdapter` | `fa` | `androidx.fragment.app.FragmentStatePagerAdapter` | `""` |
+| `28`| `COMPONENT_TYPE_FIREBASE_AUTH_PHONE`| `FirebasePhoneAuth` | `phoneauth` | `com.google.firebase.auth.PhoneAuthProvider` | `""` |
+| `30`| `COMPONENT_TYPE_FIREBASE_CLOUD_MESSAGE`| `FirebaseCloudMessage` | `fcm` | `com.google.firebase.messaging.FirebaseMessaging` | `""` |
+| `31`| `COMPONENT_TYPE_FIREBASE_AUTH_GOOGLE_LOGIN`| `GoogleSignInClient` | `googlelogin` | `com.google.android.gms.auth.api.signin.GoogleSignInClient` | `""` |
+| `32`| `COMPONENT_TYPE_UNITY_ADS` | `UnityAds` | `unityads` | `com.unity3d.ads.UnityAds` | `param1`: Game ID, `param2`: Test mode (`"true"`/`"false"`) |
+| `37`| `COMPONENT_TYPE_SUPABASE_DB` | `SupabaseDB` | `supabaseDb` | `io.github.jan.supabase.postgrest.Postgrest` | `param1`: Default table name |
+| `38`| `COMPONENT_TYPE_SUPABASE_AUTH` | `SupabaseAuth` | `supabaseAuth` | `io.github.jan.supabase.gotrue.Auth` | `""` |
+| `39`| `COMPONENT_TYPE_SUPABASE_STORAGE`| `SupabaseStorage` | `supabaseStorage` | `io.github.jan.supabase.storage.Storage` | `param1`: Default storage bucket name |
+| `40`| `COMPONENT_TYPE_BOTTOM_SHEET_DIALOG`| `BottomSheetDialog` | `bsd` | `com.google.android.material.bottomsheet.BottomSheetDialog` | `""` |
+
+### 8.2 JSON Format in `@<JavaName>_components`
+Stored as compact, line-separated JSON objects:
 ```json
-{"componentId":"intent1","param1":"","param2":"","param3":"","type":1}
+{"componentId":"i","param1":"","param2":"","param3":"","type":1}
 {"componentId":"sp","param1":"userData","param2":"","param3":"","type":2}
-{"componentId":"timer1","param1":"","param2":"","param3":"","type":5}
-{"componentId":"supabaseDb1","param1":"users","param2":"","param3":"","type":37}
+{"componentId":"tim","param1":"","param2":"","param3":"","type":5}
+{"componentId":"dil","param1":"","param2":"","param3":"","type":7}
+{"componentId":"bsd","param1":"","param2":"","param3":"","type":40}
+{"componentId":"fdb","param1":"chat_rooms","param2":"","param3":"","type":6}
+{"componentId":"net","param1":"","param2":"","param3":"","type":17}
+{"componentId":"supabaseDb1","param1":"profiles","param2":"","param3":"","type":37}
 ```
+
+### 8.3 Exhaustive Block opCodes, Specs & Parameters
+
+#### 1. Intent (`type: 1`, prefix `i`)
+* **`intentSetAction`**: `spec: "%m.intent setAction %m.intentAction"`, `parameters: ["i", "ACTION_VIEW"]`
+* **`intentSetData`**: `spec: "%m.intent setData %s"`, `parameters: ["i", "https://example.com"]`
+* **`intentSetScreen`**: `spec: "%m.intent setScreen %m.screen"`, `parameters: ["i", "DetailActivity"]`
+* **`intentPutExtra`**: `spec: "%m.intent putExtra key %s value %s"`, `parameters: ["i", "userId", "12345"]`
+* **`intentSetFlags`**: `spec: "%m.intent setFlags %m.intentFlags"`, `parameters: ["i", "CLEAR_TOP"]`
+* **`intentGetString`**: `spec: "%m.intent getStringExtra %s"`, `parameters: ["userId"]`, `type: "s"`
+* **`startActivity`**: `spec: "startActivity %m.intent"`, `parameters: ["i"]`
+* **`finishActivity`**: `spec: "finishActivity"`, `parameters: []`
+
+#### 2. SharedPreferences / File (`type: 2`, prefix `sp`)
+* **`fileSetData`**: `spec: "%m.file setData key %s value %s"`, `parameters: ["sp", "key", "val"]`
+* **`fileGetData`**: `spec: "%m.file getData key %s"`, `parameters: ["sp", "key"]`, `type: "s"`
+* **`fileRemoveData`**: `spec: "%m.file removeData key %s"`, `parameters: ["sp", "key"]`
+
+#### 3. Calendar (`type: 3`, prefix `cal`)
+* **`calendarGetNow`**: `spec: "%m.calendar getNow"`, `parameters: ["cal"]`
+* **`calendarAdd`**: `spec: "%m.calendar add %m.calendarField value %d"`, `parameters: ["cal", "DATE", "1"]`
+* **`calendarSet`**: `spec: "%m.calendar set %m.calendarField value %d"`, `parameters: ["cal", "HOUR_OF_DAY", "12"]`
+* **`calendarFormat`**: `spec: "%m.calendar Format %s"`, `parameters: ["cal", "yyyy-MM-dd HH:mm:ss"]`, `type: "s"`
+* **`calendarDiff`**: `spec: "%m.calendar diff %m.calendar"`, `parameters: ["cal1", "cal2"]`, `type: "d"`
+* **`calendarGetTime`**: `spec: "%m.calendar getTime"`, `parameters: ["cal"]`, `type: "d"`
+* **`calendarSetTime`**: `spec: "%m.calendar setTime %d"`, `parameters: ["cal", "1730000000000"]`
+
+#### 4. Vibrator (`type: 4`, prefix `vib`)
+* **`vibratorAction`**: `spec: "%m.vibrator action %d ms"`, `parameters: ["vib", "500"]`
+
+#### 5. Timer (`type: 5`, prefix `tim`)
+* **`timerEvery`**: `spec: "%m.timer after %d ms for every %d ms"`, `parameters: ["tim", "1000", "1000"]`, `type: "c"`, body logic nested in `subStack1`
+* **`timerAfter`**: `spec: "%m.timer after %d ms"`, `parameters: ["tim", "2000"]`, `type: "c"`, body logic nested in `subStack1`
+* **`timerCancel`**: `spec: "%m.timer cancel"`, `parameters: ["tim"]`
+
+#### 6. Dialog (`type: 7`, prefix `dil`)
+* **`dialogSetTitle`**: `spec: "%m.dialog setTitle %s"`, `parameters: ["dil", "Dialog Title"]`
+* **`dialogSetMessage`**: `spec: "%m.dialog setMessage %s"`, `parameters: ["dil", "Dialog message content"]`
+* **`dialogOkButton`**: `spec: "%m.dialog OK Button %s clicked"`, `parameters: ["dil", "OK"]`, `type: "c"`, click actions in `subStack1`
+* **`dialogCancelButton`**: `spec: "%m.dialog Cancel Button %s clicked"`, `parameters: ["dil", "Cancel"]`, `type: "c"`, click actions in `subStack1`
+* **`dialogNeutralButton`**: `spec: "%m.dialog Neutral Button %s clicked"`, `parameters: ["dil", "Later"]`, `type: "c"`, click actions in `subStack1`
+* **`dialogShow`**: `spec: "%m.dialog show"`, `parameters: ["dil"]`
+* **`dialogDismiss`**: `spec: "%m.dialog dismiss"`, `parameters: ["dil"]`
+* **`dialogConvertToMaterial3`**: `spec: "%m.dialog convertToMaterial3"`, `parameters: ["dil"]`
+* **`dialogSetCustomView`**: `spec: "%m.dialog setCustomView %m.view"`, `parameters: ["dil", "linear1"]`
+
+#### 7. BottomSheetDialog (`type: 40`, prefix `bsd`)
+* **`bottomSheetSetCustomView`**: `spec: "%m.bottomsheet setCustomView %m.view"`, `parameters: ["bsd", "linear1"]`
+* **`bottomSheetShow`**: `spec: "%m.bottomsheet show"`, `parameters: ["bsd"]`
+* **`bottomSheetDismiss`**: `spec: "%m.bottomsheet dismiss"`, `parameters: ["bsd"]`
+* **`bottomSheetSetCancelable`**: `spec: "%m.bottomsheet setCancelable %b"`, `parameters: ["bsd", "true"]`
+* **`bottomSheetSetState`**: `spec: "%m.bottomsheet setState %m.bottomsheetState"`, `parameters: ["bsd", "EXPANDED"]`
+* **`bottomSheetSetPeekHeight`**: `spec: "%m.bottomsheet setPeekHeight %d"`, `parameters: ["bsd", "320"]`
+* **`bottomSheetOnDismiss`**: `spec: "%m.bottomsheet onDismiss"`, `parameters: ["bsd"]`, `type: "c"`, logic in `subStack1`
+* **`bottomSheetOnStateChanged`**: `spec: "%m.bottomsheet onStateChanged"`, `parameters: ["bsd"]`, `type: "c"`, logic in `subStack1`
+
+#### 8. MediaPlayer (`type: 8`, prefix `mp`)
+* **`mediaplayerCreate`**: `spec: "%m.mediaplayer create %m.sound"`, `parameters: ["mp", "track"]`
+* **`mediaplayerStart`**: `spec: "%m.mediaplayer start"`, `parameters: ["mp"]`
+* **`mediaplayerPause`**: `spec: "%m.mediaplayer pause"`, `parameters: ["mp"]`
+* **`mediaplayerSeek`**: `spec: "%m.mediaplayer seekTo %d"`, `parameters: ["mp", "5000"]`
+* **`mediaplayerGetCurrent`**: `spec: "%m.mediaplayer getCurrentPosition"`, `parameters: ["mp"]`, `type: "d"`
+* **`mediaplayerGetDuration`**: `spec: "%m.mediaplayer getDuration"`, `parameters: ["mp"]`, `type: "d"`
+* **`mediaplayerIsPlaying`**: `spec: "%m.mediaplayer isPlaying"`, `parameters: ["mp"]`, `type: "b"`
+* **`mediaplayerSetLooping`**: `spec: "%m.mediaplayer setLooping %b"`, `parameters: ["mp", "true"]`
+* **`mediaplayerReset`**: `spec: "%m.mediaplayer reset"`, `parameters: ["mp"]`
+* **`mediaplayerRelease`**: `spec: "%m.mediaplayer release"`, `parameters: ["mp"]`
+
+#### 9. SoundPool (`type: 9`, prefix `spool`)
+* **`soundpoolCreate`**: `spec: "%m.soundpool create maxStreams %d"`, `parameters: ["spool", "5"]`
+* **`soundpoolLoad`**: `spec: "%m.soundpool load %m.sound"`, `parameters: ["spool", "click"]`, `type: "d"`
+* **`soundpoolStreamPlay`**: `spec: "%m.soundpool play soundId %d loop %d"`, `parameters: ["spool", "@10", "0"]`
+* **`soundpoolStreamStop`**: `spec: "%m.soundpool stop streamId %d"`, `parameters: ["spool", "@10"]`
+
+#### 10. ObjectAnimator (`type: 10`, prefix `oa`)
+* **`objectanimatorSetTarget`**: `spec: "%m.objectanimator setTarget %m.view"`, `parameters: ["oa", "button1"]`
+* **`objectanimatorSetProperty`**: `spec: "%m.objectanimator setProperty %m.animProperty"`, `parameters: ["oa", "TRANSLATION_Y"]`
+* **`objectanimatorSetValue`**: `spec: "%m.objectanimator setValue %d"`, `parameters: ["oa", "100"]`
+* **`objectanimatorSetFromTo`**: `spec: "%m.objectanimator setFrom %d to %d"`, `parameters: ["oa", "0", "100"]`
+* **`objectanimatorSetDuration`**: `spec: "%m.objectanimator setDuration %d"`, `parameters: ["oa", "300"]`
+* **`objectanimatorSetRepeatMode`**: `spec: "%m.objectanimator setRepeatMode %m.animRepeat"`, `parameters: ["oa", "RESTART"]`
+* **`objectanimatorSetRepeatCount`**: `spec: "%m.objectanimator setRepeatCount %d"`, `parameters: ["oa", "1"]`
+* **`objectanimatorSetInterpolator`**: `spec: "%m.objectanimator setInterpolator %m.animInterpolator"`, `parameters: ["oa", "AccelerateDecelerate"]`
+* **`objectanimatorStart`**: `spec: "%m.objectanimator start"`, `parameters: ["oa"]`
+* **`objectanimatorCancel`**: `spec: "%m.objectanimator cancel"`, `parameters: ["oa"]`
+* **`objectanimatorIsRunning`**: `spec: "%m.objectanimator isRunning"`, `parameters: ["oa"]`, `type: "b"`
+
+#### 11. RequestNetwork (`type: 17`, prefix `net`)
+* **`requestnetworkSetParams`**: `spec: "%m.requestnetwork setParams %m.varMap type %m.reqType"`, `parameters: ["net", "paramsMap", "REQUEST_PARAM"]`
+* **`requestnetworkSetHeaders`**: `spec: "%m.requestnetwork setHeaders %m.varMap"`, `parameters: ["net", "headersMap"]`
+* **`requestnetworkStartRequestNetwork`**: `spec: "%m.requestnetwork startRequest method %m.reqMethod url %s tag %s"`, `parameters: ["net", "GET", "https://api.example.com/items", "ITEMS_REQ"]`
+
+#### 12. TextToSpeech & SpeechToText (`type: 18` & `19`, prefix `tts` & `stt`)
+* **`textToSpeechSpeak`**: `spec: "%m.texttospeech speak %s"`, `parameters: ["tts", "Operation completed"]`
+* **`textToSpeechSetPitch`**: `spec: "%m.texttospeech setPitch %d"`, `parameters: ["tts", "1.0"]`
+* **`textToSpeechSetSpeechRate`**: `spec: "%m.texttospeech setSpeechRate %d"`, `parameters: ["tts", "1.0"]`
+* **`textToSpeechStop`**: `spec: "%m.texttospeech stop"`, `parameters: ["tts"]`
+* **`speechToTextStartListening`**: `spec: "%m.speechtotext startListening"`, `parameters: ["stt"]`
+* **`speechToTextStopListening`**: `spec: "%m.speechtotext stopListening"`, `parameters: ["stt"]`
+
+#### 13. Firebase Suite (`type: 6, 12, 14`)
+* **`firebaseAdd`**: `spec: "%m.firebase child %s updateChildren %m.varMap"`, `parameters: ["fdb", "users/101", "userMap"]`
+* **`firebasePush`**: `spec: "%m.firebase push %m.varMap"`, `parameters: ["fdb", "userMap"]`
+* **`firebaseGetPushKey`**: `spec: "%m.firebase getPushKey"`, `parameters: ["fdb"]`, `type: "s"`
+* **`firebaseDelete`**: `spec: "%m.firebase child %s removeValue"`, `parameters: ["fdb", "users/101"]`
+* **`firebaseGetChildren`**: `spec: "%m.firebase getChildren %m.listMap"`, `parameters: ["fdb", "usersList"]`, `type: "c"`, completion logic in `subStack1`
+* **`firebaseStartListen`**: `spec: "%m.firebase startListen"`, `parameters: ["fdb"]`
+* **`firebaseStopListen`**: `spec: "%m.firebase stopListen"`, `parameters: ["fdb"]`
+* **`firebaseauthCreateUser`**: `spec: "%m.firebaseauth createUserWithEmail %s password %s"`, `parameters: ["fauth", "email@test.com", "pass1234"]`
+* **`firebaseauthSignInUser`**: `spec: "%m.firebaseauth signInWithEmail %s password %s"`, `parameters: ["fauth", "email@test.com", "pass1234"]`
+* **`firebaseauthSignOutUser`**: `spec: "%m.firebaseauth signOut"`, `parameters: []`
+* **`firebaseauthIsLoggedIn`**: `spec: "%m.firebaseauth isLoggedIn"`, `parameters: []`, `type: "b"`
+* **`firebaseauthGetCurrentUser`**: `spec: "%m.firebaseauth getCurrentUser"`, `parameters: []`, `type: "s"`
+* **`firebaseauthGetUid`**: `spec: "%m.firebaseauth getUid"`, `parameters: []`, `type: "s"`
+* **`firebasestorageUploadFile`**: `spec: "%m.firebasestorage child %s putFile %s"`, `parameters: ["fstore", "profile.png", "local/profile.png"]`
+* **`firebasestorageDownloadFile`**: `spec: "%m.firebasestorage getReferenceFromUrl %s getFile %s"`, `parameters: ["fstore", "gs://bucket/file.png", "local/file.png"]`
+* **`firebasestorageDelete`**: `spec: "%m.firebasestorage delete %s"`, `parameters: ["fstore", "gs://bucket/file.png"]`
 
 ---
 
@@ -753,6 +1071,42 @@ When SVG vector drawables are imported into Sketchware:
 1. The original vector file is preserved in `.sketchware/data/<sc_id>/converted-vectors/<name>.svg`.
 2. Sketchware parses the SVG path data and generates a native Android Vector Drawable XML file saved to `.sketchware/resources/images/<sc_id>/<name>.xml`.
 3. An entry is added to `resource` under `@images` with `"resType": 1`.
+
+### 9.4 String Resources & Localization (`res/values/strings.xml`)
+
+Sketchware-DayGreen features a dedicated **Strings Tab** (`StringsEditorFragment.java`) and persistent multi-locale strings architecture managed by `org.sketchware.daygreen.editor.strings.StringsRepository` and `pro.sketchware.utility.ProjectStrings`.
+
+#### 9.4.1 File Hierarchy & Locales
+String resources reside on disk in plaintext standard Android XML format under `.sketchware/data/<sc_id>/files/resource/`:
+```text
+files/resource/
+├── values/
+│   └── strings.xml             <-- Default language / baseline strings
+├── values-ar/
+│   └── strings.xml             <-- Arabic translation
+├── values-es/
+│   └── strings.xml             <-- Spanish translation
+└── values-fr/
+    └── strings.xml             <-- French translation
+```
+
+#### 9.4.2 Structure of `strings.xml`
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tap Counter</string>
+    <string name="button1_text">Click Me</string>
+    <string name="textview1_text" translatable="false">Count: 0</string>
+</resources>
+```
+* **`app_name`**: Mandatory string resource for every project. Defines the application label in `AndroidManifest.xml`.
+* **`translatable="false"`**: Marked as untranslatable in localized resource folders.
+
+#### 9.4.3 Binding to Widgets (`@string/<key>`)
+Every widget's text, hint, or content description can reference a string resource:
+* In `ViewBean.text.text`: Set to `"@string/<key>"` (e.g. `"@string/app_name"` or `"@string/button1_text"`).
+* **Automatic Externalization**: When literal text is assigned to a widget, `ProjectStrings.assign(...)` automatically registers `<widgetId>_text` in `values/strings.xml` and binds `"@string/<widgetId>_text"` to the widget.
+* **Strict Preservation Rule**: When modifying widget properties with AI or tools, if a widget already references `"@string/<key>"`, that reference must be strictly preserved! Never replace an existing `@string/...` reference with a hardcoded string literal unless the user explicitly requested modifying that specific text string.
 
 ---
 
@@ -944,6 +1298,10 @@ When writing scripts, tools, or direct modifications to Sketchware project files
 >    Before triggering an editor reload or compilation, all modified core files (`project`, `file`, `logic`, `view`, `resource`, `library`) **MUST** be re-encrypted using AES-128-CBC with key `"sketchwaresecure"`.
 > 6. **Strict String Typing for Version Fields in `project` (`ClassCastException` Trap)**:
 >    In the `project` JSON file, fields `"sc_ver_code"`, `"sc_ver_name"`, `"my_sc_ver_code"`, and `"my_sc_ver_name"` **MUST be formatted as JSON strings** (`"1"`, not integer `1`).
+> 7. **Fast Scoped Work Area Focus & Direct Execution**:
+>    When modifying an active event (e.g., `onCreate`, `button1_onClick`), execute directly in a single turn using `apply_java_code_to_event` or `insert_logic_blocks`. Do NOT run multi-turn project summaries or view verifications when the user only asked for logic.
+> 8. **View `convert` and `inject` Correctness**:
+>    Standard widgets must declare their class name (`"LinearLayout"`, `"TextView"`, `"Button"`), while Material 3 / AndroidX widgets must specify their full package paths (`"com.google.android.material.button.MaterialButton"`, `"androidx.cardview.widget.CardView"`, `"com.google.android.material.materialswitch.MaterialSwitch"`). Custom attributes belong in `inject` (e.g. `app:cornerRadius="8dp"`).
 >    In `ProjectsAdapter.java:129`, Sketchware evaluates `yB.c(projectMap, "sc_ver_code")` which executes `(String) map.get(...)`. Unquoted JSON numbers are parsed by `Gson` as `java.lang.Double`, causing an immediate crash:
 >    `java.lang.ClassCastException: java.lang.Double cannot be cast to java.lang.String at com.besome.sketch.adapters.ProjectsAdapter.onBindViewHolder(ProjectsAdapter.java:129)`
 > 7. **Variable & List Name Constraints (`a.a.a.VB`)**:

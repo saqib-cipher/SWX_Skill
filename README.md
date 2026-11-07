@@ -4,7 +4,7 @@
 [![Security](https://img.shields.io/badge/Security-AES--128--CBC-4CAF50?style=for-the-badge&logo=lock)](https://github.com/saqib-cipher/SWX_Skill)
 [![Skill Format](https://img.shields.io/badge/Antigravity-Agent%20Skill-7C4DFF?style=for-the-badge&logo=google)](https://github.com/saqib-cipher/SWX_Skill)
 
-Complete architectural manual, operational specification, and AI agent skill for **Sketchware, Sketchware Pro, Sketchware-DayGreen, and Desktop SketchwareX** project systems.
+Complete architectural manual, operational specification, and AI agent skill for **Sketchware, Sketchware Pro, SketchwareX, and Desktop SketchwareX** project systems.
 
 ---
 
@@ -192,5 +192,5 @@ For the full operational specification including ViewBean layout parameters, 50+
 
 ## 📄 License & Credits
 
-Created by **[saqib-cipher](https://github.com/saqib-cipher)** for the Sketchware Pro, DayGreen, and Desktop SketchwareX developer community.
+Created by **[saqib-cipher](https://github.com/saqib-cipher)** for the Sketchware Pro, and Desktop SketchwareX developer community.
 Open source under the [MIT License](LICENSE).
